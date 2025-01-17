@@ -42,6 +42,7 @@ struct BlockedMod {
     bool matched;
     QString localPath;
     QString targetFolder;
+    bool move = false;
 };
 
 QT_BEGIN_NAMESPACE

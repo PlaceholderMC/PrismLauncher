@@ -380,8 +380,8 @@ if(UNIX AND APPLE)
     set(MACOSX_SPARKLE_UPDATE_PUBLIC_KEY "v55ZWWD6QlPoXGV6VLzOTZxZUggWeE51X8cRQyQh6vA=" CACHE STRING "Public key for Sparkle update feed")
     set(MACOSX_SPARKLE_UPDATE_FEED_URL "https://prismlauncher.org/feed/appcast.xml" CACHE STRING "URL for Sparkle update feed")
 
-    set(MACOSX_SPARKLE_DOWNLOAD_URL "https://github.com/sparkle-project/Sparkle/releases/download/2.5.2/Sparkle-2.5.2.tar.xz" CACHE STRING "URL to Sparkle release archive")
-    set(MACOSX_SPARKLE_SHA256 "572dd67ae398a466f19f343a449e1890bac1ef74885b4739f68f979a8a89884b" CACHE STRING "SHA256 checksum for Sparkle release archive")
+    set(MACOSX_SPARKLE_DOWNLOAD_URL "https://github.com/sparkle-project/Sparkle/releases/download/2.6.4/Sparkle-2.6.4.tar.xz" CACHE STRING "URL to Sparkle release archive")
+    set(MACOSX_SPARKLE_SHA256 "50612a06038abc931f16011d7903b8326a362c1074dabccb718404ce8e585f0b" CACHE STRING "SHA256 checksum for Sparkle release archive")
     set(MACOSX_SPARKLE_DIR "${CMAKE_BINARY_DIR}/frameworks/Sparkle")
 
     # directories to look for dependencies

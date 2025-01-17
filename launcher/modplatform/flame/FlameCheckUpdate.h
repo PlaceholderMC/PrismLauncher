@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Application.h"
 #include "modplatform/CheckUpdateTask.h"
 #include "net/NetJob.h"
 

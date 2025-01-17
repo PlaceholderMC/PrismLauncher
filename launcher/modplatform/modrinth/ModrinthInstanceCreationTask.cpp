@@ -262,12 +262,14 @@ bool ModrinthCreationTask::createInstance()
             mod->setDetails(d);
             resources[file.hash.toHex()] = mod;
         }
-
+        if (file.downloads.empty()) {
+            setError(tr("The file '%1' is missing a download link. This is invalid in the pack format.").arg(fileName));
+            return false;
+        }
         qDebug() << "Will try to download" << file.downloads.front() << "to" << file_path;
         auto dl = Net::ApiDownload::makeFile(file.downloads.dequeue(), file_path);
         dl->addValidator(new Net::ChecksumValidator(file.hashAlgorithm, file.hash));
         downloadMods->addNetAction(dl);
-
         if (!file.downloads.empty()) {
             // FIXME: This really needs to be put into a ConcurrentTask of
             // MultipleOptionsTask's , once those exist :)

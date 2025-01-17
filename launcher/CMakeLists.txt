@@ -1085,8 +1085,6 @@ SET(LAUNCHER_SOURCES
     ui/widgets/CustomCommands.h
     ui/widgets/EnvironmentVariables.cpp
     ui/widgets/EnvironmentVariables.h
-    ui/widgets/DropLabel.cpp
-    ui/widgets/DropLabel.h
     ui/widgets/FocusLineEdit.cpp
     ui/widgets/FocusLineEdit.h
     ui/widgets/IconLabel.cpp

@@ -19,27 +19,28 @@ static ModrinthAPI modrinth_api;
 static FlameAPI flame_api;
 
 EnsureMetadataTask::EnsureMetadataTask(Resource* resource, QDir dir, ModPlatform::ResourceProvider prov)
-    : Task(), m_index_dir(dir), m_provider(prov), m_hashing_task(nullptr), m_current_task(nullptr)
+    : Task(), m_index_dir(dir), m_provider(prov), m_hashingTask(nullptr), m_current_task(nullptr)
 {
-    auto hash_task = createNewHash(resource);
-    if (!hash_task)
+    auto hashTask = createNewHash(resource);
+    if (!hashTask)
         return;
-    connect(hash_task.get(), &Hashing::Hasher::resultsReady, [this, resource](QString hash) { m_resources.insert(hash, resource); });
-    connect(hash_task.get(), &Task::failed, [this, resource] { emitFail(resource, "", RemoveFromList::No); });
-    hash_task->start();
+    connect(hashTask.get(), &Hashing::Hasher::resultsReady, [this, resource](QString hash) { m_resources.insert(hash, resource); });
+    connect(hashTask.get(), &Task::failed, [this, resource] { emitFail(resource, "", RemoveFromList::No); });
+    m_hashingTask = hashTask;
 }
 
 EnsureMetadataTask::EnsureMetadataTask(QList<Resource*>& resources, QDir dir, ModPlatform::ResourceProvider prov)
     : Task(), m_index_dir(dir), m_provider(prov), m_current_task(nullptr)
 {
-    m_hashing_task.reset(new ConcurrentTask("MakeHashesTask", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt()));
+    auto hashTask = makeShared<ConcurrentTask>("MakeHashesTask", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt());
+    m_hashingTask = hashTask;
     for (auto* resource : resources) {
         auto hash_task = createNewHash(resource);
         if (!hash_task)
             continue;
         connect(hash_task.get(), &Hashing::Hasher::resultsReady, [this, resource](QString hash) { m_resources.insert(hash, resource); });
         connect(hash_task.get(), &Task::failed, [this, resource] { emitFail(resource, "", RemoveFromList::No); });
-        m_hashing_task->addTask(hash_task);
+        hashTask->addTask(hash_task);
     }
 }
 

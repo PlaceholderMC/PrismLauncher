@@ -192,7 +192,8 @@ void IconList::directoryChanged(const QString& path)
         qDebug() << "Adding icon " << addedPath;
 
         QFileInfo addfile(addedPath);
-        QString key = m_dir.relativeFilePath(addfile.absoluteFilePath());
+        QString relativePath = m_dir.relativeFilePath(addfile.absoluteFilePath());
+        QString key = QFileInfo(relativePath).completeBaseName();
         QString name = formatName(m_dir, addfile);
 
         if (addIcon(key, name, addfile.filePath(), IconType::FileBased)) {

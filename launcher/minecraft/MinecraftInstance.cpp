@@ -594,6 +594,13 @@ QMap<QString, QString> MinecraftInstance::getVariables()
     out.insert("INST_JAVA", settings()->get("JavaPath").toString());
     out.insert("INST_JAVA_ARGS", javaArguments().join(' '));
     out.insert("NO_COLOR", "1");
+#ifdef Q_OS_MACOS
+    // get library for Steam overlay support
+    QString steamDyldInsertLibraries = qEnvironmentVariable("STEAM_DYLD_INSERT_LIBRARIES");
+    if (!steamDyldInsertLibraries.isEmpty()) {
+        out.insert("DYLD_INSERT_LIBRARIES", steamDyldInsertLibraries);
+    }
+#endif
     return out;
 }
 

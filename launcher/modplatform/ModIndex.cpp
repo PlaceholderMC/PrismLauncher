@@ -31,6 +31,19 @@ static const QMap<QString, IndexedVersionType::VersionType> s_indexed_version_ty
     { "alpha", IndexedVersionType::VersionType::Alpha }
 };
 
+static const QList<ModLoaderType> loaderList = { NeoForge, Forge, Cauldron, LiteLoader, Quilt, Fabric };
+
+QList<ModLoaderType> modLoaderTypesToList(ModLoaderTypes flags)
+{
+    QList<ModLoaderType> flagList;
+    for (auto flag : loaderList) {
+        if (flags.testFlag(flag)) {
+            flagList.append(flag);
+        }
+    }
+    return flagList;
+}
+
 IndexedVersionType::IndexedVersionType(const QString& type) : IndexedVersionType(enumFromString(type)) {}
 
 IndexedVersionType::IndexedVersionType(const IndexedVersionType::VersionType& type)

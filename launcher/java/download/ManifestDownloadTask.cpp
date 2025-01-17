@@ -86,11 +86,10 @@ void ManifestDownloadTask::downloadJava(const QJsonDocument& doc)
         if (type == "directory") {
             FS::ensureFolderPathExists(file);
         } else if (type == "link") {
-            // this is linux only !
+            // this is *nix only !
             auto path = Json::ensureString(meta, "target");
             if (!path.isEmpty()) {
-                auto target = FS::PathCombine(file, "../" + path);
-                QFile(target).link(file);
+                QFile::link(path, file);
             }
         } else if (type == "file") {
             // TODO download compressed version if it exists ?

@@ -190,11 +190,8 @@ void V1::updateModIndex(const QDir& index_dir, Mod& mod)
     }
 
     toml::array loaders;
-    for (auto loader : { ModPlatform::NeoForge, ModPlatform::Forge, ModPlatform::Cauldron, ModPlatform::LiteLoader, ModPlatform::Fabric,
-                         ModPlatform::Quilt }) {
-        if (mod.loaders & loader) {
-            loaders.push_back(getModLoaderAsString(loader).toStdString());
-        }
+    for (auto loader : ModPlatform::modLoaderTypesToList(mod.loaders)) {
+        loaders.push_back(getModLoaderAsString(loader).toStdString());
     }
     toml::array mcVersions;
     for (auto version : mod.mcVersions) {

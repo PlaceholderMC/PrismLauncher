@@ -48,6 +48,7 @@
 #include "Version.h"
 #include "minecraft/mod/ModDetails.h"
 #include "minecraft/mod/tasks/LocalModParseTask.h"
+#include "modplatform/ModIndex.h"
 
 Mod::Mod(const QFileInfo& file) : Resource(file), m_local_details()
 {
@@ -157,11 +158,8 @@ auto Mod::loaders() const -> QString
     if (metadata()) {
         QStringList loaders;
         auto modLoaders = metadata()->loaders;
-        for (auto loader : { ModPlatform::NeoForge, ModPlatform::Forge, ModPlatform::Cauldron, ModPlatform::LiteLoader, ModPlatform::Fabric,
-                             ModPlatform::Quilt }) {
-            if (modLoaders & loader) {
-                loaders << getModLoaderAsString(loader);
-            }
+        for (auto loader : ModPlatform::modLoaderTypesToList(modLoaders)) {
+            loaders << getModLoaderAsString(loader);
         }
         return loaders.join(", ");
     }

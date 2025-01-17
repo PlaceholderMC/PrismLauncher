@@ -245,7 +245,7 @@ jobs:
           arch: ${{ matrix.vcvars_arch }}
 
       - name: Prepare AppImage (Linux)
-        if: runner.os == 'Linux' && matrix.qt_ver != 5
+        if: runner.os == 'Linux'
         run: |
           wget "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
           wget "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
@@ -369,11 +369,13 @@ jobs:
 
           if [ -n '${{ secrets.APPLE_CODESIGN_ID }}' ]; then
             APPLE_CODESIGN_ID='${{ secrets.APPLE_CODESIGN_ID }}'
+            ENTITLEMENTS_FILE='../program_info/App.entitlements'
           else
             APPLE_CODESIGN_ID='-'
+            ENTITLEMENTS_FILE='../program_info/AdhocSignedApp.entitlements'
           fi
 
-          sudo codesign --sign "$APPLE_CODESIGN_ID" --deep --force --entitlements "../program_info/App.entitlements" --options runtime "PrismLauncher.app/Contents/MacOS/prismlauncher"
+          sudo codesign --sign "$APPLE_CODESIGN_ID" --deep --force --entitlements "$ENTITLEMENTS_FILE" --options runtime "PrismLauncher.app/Contents/MacOS/prismlauncher"
           mv "PrismLauncher.app" "Prism Launcher.app"
 
       - name: Notarize (macOS)
@@ -489,7 +491,7 @@ jobs:
           }
 
       - name: Package AppImage (Linux)
-        if: runner.os == 'Linux' && matrix.qt_ver != 5
+        if: runner.os == 'Linux'
         shell: bash
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -508,8 +510,8 @@ jobs:
 
           cp -r ${{ runner.workspace }}/Qt/${{ matrix.qt_version }}/gcc_64/plugins/iconengines/* ${{ env.INSTALL_APPIMAGE_DIR }}/usr/plugins/iconengines
 
-          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
-          cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
+          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.3 ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
+          cp /usr/lib/x86_64-linux-gnu/libssl.so.3 ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
           cp /usr/lib/x86_64-linux-gnu/libOpenGL.so.0* ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
 
           LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib"
@@ -544,8 +546,8 @@ jobs:
           mkdir  ${{ env.INSTALL_PORTABLE_DIR }}/lib
           cp /lib/x86_64-linux-gnu/libbz2.so.1.0 ${{ env.INSTALL_PORTABLE_DIR }}/lib
           cp /usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0 ${{ env.INSTALL_PORTABLE_DIR }}/lib
-          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 ${{ env.INSTALL_PORTABLE_DIR }}/lib
-          cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 ${{ env.INSTALL_PORTABLE_DIR }}/lib
+          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.3 ${{ env.INSTALL_PORTABLE_DIR }}/lib
+          cp /usr/lib/x86_64-linux-gnu/libssl.so.3 ${{ env.INSTALL_PORTABLE_DIR }}/lib
           cp /usr/lib/x86_64-linux-gnu/libffi.so.8 ${{ env.INSTALL_PORTABLE_DIR }}/lib
           mv ${{ env.INSTALL_PORTABLE_DIR }}/bin/*.so* ${{ env.INSTALL_PORTABLE_DIR }}/lib
 
@@ -585,29 +587,22 @@ jobs:
           name: PrismLauncher-${{ matrix.name }}-Setup-${{ env.VERSION }}-${{ inputs.build_type }}
           path: PrismLauncher-Setup.exe
 
-      - name: Upload binary tarball (Linux, portable, Qt 5)
-        if: runner.os == 'Linux' && matrix.qt_ver != 6
-        uses: actions/upload-artifact@v4
-        with:
-          name: PrismLauncher-${{ runner.os }}-Qt5-Portable-${{ env.VERSION }}-${{ inputs.build_type }}
-          path: PrismLauncher-portable.tar.gz
-
-      - name: Upload binary tarball (Linux, portable, Qt 6)
-        if: runner.os == 'Linux' && matrix.qt_ver != 5
+      - name: Upload binary tarball (Linux, portable)
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: PrismLauncher-${{ runner.os }}-Qt6-Portable-${{ env.VERSION }}-${{ inputs.build_type }}
           path: PrismLauncher-portable.tar.gz
 
       - name: Upload AppImage (Linux)
-        if: runner.os == 'Linux' && matrix.qt_ver != 5
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: PrismLauncher-${{ runner.os }}-${{ env.VERSION }}-${{ inputs.build_type }}-x86_64.AppImage
           path: PrismLauncher-${{ runner.os }}-${{ env.VERSION }}-${{ inputs.build_type }}-x86_64.AppImage
 
       - name: Upload AppImage Zsync (Linux)
-        if: runner.os == 'Linux' && matrix.qt_ver != 5
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: PrismLauncher-${{ runner.os }}-${{ env.VERSION }}-${{ inputs.build_type }}-x86_64.AppImage.zsync

@@ -60,7 +60,7 @@
        <bool>true</bool>
       </property>
       <property name="dragDropMode">
-       <enum>QAbstractItemView::NoDragDrop</enum>
+       <enum>QAbstractItemView::DropOnly</enum>
       </property>
       <property name="uniformRowHeights">
        <bool>true</bool>

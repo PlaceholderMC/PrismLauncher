@@ -597,8 +597,14 @@ void FlameCreationTask::copyBlockedMods(QList<BlockedMod> const& blocked_mods)
 
         qDebug() << "Will try to copy" << mod.localPath << "to" << destPath;
 
-        if (!FS::copy(mod.localPath, destPath)()) {
-            qDebug() << "Copy of" << mod.localPath << "to" << destPath << "Failed";
+        if (mod.move) {
+            if (!FS::move(mod.localPath, destPath)) {
+                qDebug() << "Move of" << mod.localPath << "to" << destPath << "Failed";
+            }
+        } else {
+            if (!FS::copy(mod.localPath, destPath)()) {
+                qDebug() << "Copy of" << mod.localPath << "to" << destPath << "Failed";
+            }
         }
 
         i++;
