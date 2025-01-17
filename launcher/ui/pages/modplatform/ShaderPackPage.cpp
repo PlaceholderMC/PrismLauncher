@@ -8,6 +8,7 @@
 
 #include "ShaderPackModel.h"
 
+#include "Application.h"
 #include "ui/dialogs/ResourceDownloadDialog.h"
 
 #include <QRegularExpression>
@@ -31,7 +32,7 @@ void ShaderPackResourcePage::triggerSearch()
     updateSelectionButton();
 
     static_cast<ShaderPackResourceModel*>(m_model)->searchWithTerm(getSearchTerm(), m_ui->sortByBox->currentData().toUInt());
-    m_fetch_progress.watch(m_model->activeSearchJob().get());
+    m_fetchProgress.watch(m_model->activeSearchJob().get());
 }
 
 QMap<QString, QString> ShaderPackResourcePage::urlHandlers() const
@@ -48,10 +49,11 @@ void ShaderPackResourcePage::addResourceToPage(ModPlatform::IndexedPack::Ptr pac
                                                ModPlatform::IndexedVersion& version,
                                                const std::shared_ptr<ResourceFolderModel> base_model)
 {
+    bool is_indexed = !APPLICATION->settings()->get("ModMetadataDisabled").toBool();
     QString custom_target_folder;
     if (version.loaders & ModPlatform::Cauldron)
         custom_target_folder = QStringLiteral("resourcepacks");
-    m_model->addPack(pack, version, base_model, false, custom_target_folder);
+    m_model->addPack(pack, version, base_model, is_indexed, custom_target_folder);
 }
 
 }  // namespace ResourceDownload

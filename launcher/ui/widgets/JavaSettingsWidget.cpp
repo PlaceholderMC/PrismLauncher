@@ -460,7 +460,7 @@ void JavaSettingsWidget::checkJavaPath(const QString& path)
     }
     setJavaStatus(JavaStatus::Pending);
     m_checker.reset(
-        new JavaChecker(path, "", minHeapSize(), maxHeapSize(), m_permGenSpinBox->isVisible() ? m_permGenSpinBox->value() : 0, 0, this));
+        new JavaChecker(path, "", minHeapSize(), maxHeapSize(), m_permGenSpinBox->isVisible() ? m_permGenSpinBox->value() : 0, 0));
     connect(m_checker.get(), &JavaChecker::checkFinished, this, &JavaSettingsWidget::checkFinished);
     m_checker->start();
 }

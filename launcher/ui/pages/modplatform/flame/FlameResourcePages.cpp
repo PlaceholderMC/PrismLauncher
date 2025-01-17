@@ -209,17 +209,17 @@ auto FlameShaderPackPage::shouldDisplay() const -> bool
 
 unique_qobject_ptr<ModFilterWidget> FlameModPage::createFilterWidget()
 {
-    return ModFilterWidget::create(&static_cast<MinecraftInstance&>(m_base_instance), false, this);
+    return ModFilterWidget::create(&static_cast<MinecraftInstance&>(m_baseInstance), false, this);
 }
 
 void FlameModPage::prepareProviderCategories()
 {
     auto response = std::make_shared<QByteArray>();
-    auto task = FlameAPI::getModCategories(response);
-    QObject::connect(task.get(), &Task::succeeded, [this, response]() {
+    m_categoriesTask = FlameAPI::getModCategories(response);
+    QObject::connect(m_categoriesTask.get(), &Task::succeeded, [this, response]() {
         auto categories = FlameAPI::loadModCategories(response);
         m_filter_widget->setCategories(categories);
     });
-    task->start();
+    m_categoriesTask->start();
 };
 }  // namespace ResourceDownload

@@ -52,11 +52,10 @@ static bool checkDependencies(std::shared_ptr<GetModDependenciesTask::PackDepend
            (!loaders || !sel->version.loaders || sel->version.loaders & loaders);
 }
 
-GetModDependenciesTask::GetModDependenciesTask(QObject* parent,
-                                               BaseInstance* instance,
+GetModDependenciesTask::GetModDependenciesTask(BaseInstance* instance,
                                                ModFolderModel* folder,
                                                QList<std::shared_ptr<PackDependency>> selected)
-    : SequentialTask(parent, tr("Get dependencies"))
+    : SequentialTask(tr("Get dependencies"))
     , m_selected(selected)
     , m_flame_provider{ ModPlatform::ResourceProvider::FLAME, std::make_shared<ResourceDownload::FlameModModel>(*instance),
                         std::make_shared<FlameAPI>() }
@@ -185,7 +184,7 @@ Task::Ptr GetModDependenciesTask::prepareDependencyTask(const ModPlatform::Depen
     auto provider = providerName == m_flame_provider.name ? m_flame_provider : m_modrinth_provider;
 
     auto tasks = makeShared<SequentialTask>(
-        this, QString("DependencyInfo: %1").arg(dep.addonId.toString().isEmpty() ? dep.version : dep.addonId.toString()));
+        QString("DependencyInfo: %1").arg(dep.addonId.toString().isEmpty() ? dep.version : dep.addonId.toString()));
 
     if (!dep.addonId.toString().isEmpty()) {
         tasks->addTask(getProjectInfoTask(pDep));

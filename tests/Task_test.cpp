@@ -16,7 +16,7 @@ class BasicTask : public Task {
     friend class TaskTest;
 
    public:
-    BasicTask(bool show_debug_log = true) : Task(nullptr, show_debug_log) {}
+    BasicTask(bool show_debug_log = true) : Task(show_debug_log) {}
 
    private:
     void executeTask() override { emitSucceeded(); }
@@ -66,7 +66,7 @@ class BigConcurrentTaskThread : public QThread {
         }
 
         connect(&big_task, &Task::finished, this, &QThread::quit);
-        connect(&m_deadline, &QTimer::timeout, this, [&] {
+        connect(&m_deadline, &QTimer::timeout, this, [this] {
             passed_the_deadline = true;
             quit();
         });
@@ -128,10 +128,10 @@ class TaskTest : public QObject {
     {
         BasicTask t;
         QObject::connect(&t, &Task::finished,
-                         [&] { QVERIFY2(t.wasSuccessful(), "Task finished but was not successful when it should have been."); });
+                         [&t] { QVERIFY2(t.wasSuccessful(), "Task finished but was not successful when it should have been."); });
         t.start();
 
-        QVERIFY2(QTest::qWaitFor([&]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
+        QVERIFY2(QTest::qWaitFor([&t]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
     }
 
     void test_basicConcurrentRun()
@@ -154,7 +154,7 @@ class TaskTest : public QObject {
         });
 
         t.start();
-        QVERIFY2(QTest::qWaitFor([&]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
+        QVERIFY2(QTest::qWaitFor([&t]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
     }
 
     // Tests if starting new tasks after the 6 initial ones is working
@@ -196,7 +196,7 @@ class TaskTest : public QObject {
         });
 
         t.start();
-        QVERIFY2(QTest::qWaitFor([&]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
+        QVERIFY2(QTest::qWaitFor([&t]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
     }
 
     void test_basicSequentialRun()
@@ -219,7 +219,7 @@ class TaskTest : public QObject {
         });
 
         t.start();
-        QVERIFY2(QTest::qWaitFor([&]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
+        QVERIFY2(QTest::qWaitFor([&t]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
     }
 
     void test_basicMultipleOptionsRun()
@@ -242,7 +242,7 @@ class TaskTest : public QObject {
         });
 
         t.start();
-        QVERIFY2(QTest::qWaitFor([&]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
+        QVERIFY2(QTest::qWaitFor([&t]() { return t.isFinished(); }, 1000), "Task didn't finish as it should.");
     }
 
     void test_stackOverflowInConcurrentTask()

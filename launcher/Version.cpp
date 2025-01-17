@@ -79,7 +79,7 @@ void Version::parse()
     if (m_string.isEmpty())
         return;
 
-    auto classChange = [&](QChar lastChar, QChar currentChar) {
+    auto classChange = [&currentSection](QChar lastChar, QChar currentChar) {
         if (lastChar.isNull())
             return false;
         if (lastChar.isDigit() != currentChar.isDigit())
@@ -123,8 +123,7 @@ QDebug operator<<(QDebug debug, const Version& v)
         first = false;
     }
 
-    debug.nospace() << " ]"
-                    << " }";
+    debug.nospace() << " ]" << " }";
 
     return debug;
 }

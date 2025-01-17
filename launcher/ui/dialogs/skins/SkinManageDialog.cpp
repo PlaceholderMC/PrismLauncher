@@ -93,6 +93,9 @@ SkinManageDialog::SkinManageDialog(QWidget* parent, MinecraftAccountPtr acct)
     setupCapes();
 
     ui->listView->setCurrentIndex(m_list.index(m_list.getSelectedAccountSkin()));
+
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("Cancel"));
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("OK"));
 }
 
 SkinManageDialog::~SkinManageDialog()
@@ -139,6 +142,9 @@ void SkinManageDialog::on_fileBtn_clicked()
 {
     auto filter = QMimeDatabase().mimeTypeForName("image/png").filterString();
     QString raw_path = QFileDialog::getOpenFileName(this, tr("Select Skin Texture"), QString(), filter);
+    if (raw_path.isNull()) {
+        return;
+    }
     auto message = m_list.installSkin(raw_path, {});
     if (!message.isEmpty()) {
         CustomMessageBox::selectable(this, tr("Selected file is not a valid skin"), message, QMessageBox::Critical)->show();

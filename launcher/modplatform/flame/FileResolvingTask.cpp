@@ -144,7 +144,7 @@ void Flame::FileResolvingTask::netJobFinished()
                        << " reason: " << parse_error.errorString();
             qWarning() << *m_result;
 
-            failed(parse_error.errorString());
+            getFlameProjects();
             return;
         }
 

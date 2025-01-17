@@ -39,7 +39,9 @@ ResourceAPI::SearchArgs ModModel::createSearchArguments()
 
     auto sort = getCurrentSortingMethodByIndex();
 
-    return { ModPlatform::ResourceType::MOD, m_next_search_offset, m_search_term, sort, loaders, versions, side, categories };
+    return {
+        ModPlatform::ResourceType::MOD, m_next_search_offset, m_search_term, sort, loaders, versions, side, categories, m_filter->openSource
+    };
 }
 
 ResourceAPI::VersionSearchArgs ModModel::createVersionsArguments(QModelIndex& entry)
@@ -104,18 +106,6 @@ bool checkSide(QString filter, QString value)
     return filter.isEmpty() || value.isEmpty() || filter == "both" || value == "both" || filter == value;
 }
 
-bool checkMcVersions(std::list<Version> filter, QStringList value)
-{
-    bool valid = false;
-    for (auto mcVersion : filter) {
-        if (value.contains(mcVersion.toString())) {
-            valid = true;
-            break;
-        }
-    }
-    return filter.empty() || valid;
-}
-
 bool ModModel::checkFilters(ModPlatform::IndexedPack::Ptr pack)
 {
     if (!m_filter)
@@ -135,7 +125,7 @@ bool ModModel::checkVersionFilters(const ModPlatform::IndexedVersion& v)
             checkSide(m_filter->side, v.side) &&                                    // side
             (m_filter->releases.empty() ||                                          // releases
              std::find(m_filter->releases.cbegin(), m_filter->releases.cend(), v.version_type) != m_filter->releases.cend()) &&
-            checkMcVersions(m_filter->versions, v.mcVersion));  // mcVersions
+            m_filter->checkMcVersions(v.mcVersion));  // mcVersions
 }
 
 }  // namespace ResourceDownload

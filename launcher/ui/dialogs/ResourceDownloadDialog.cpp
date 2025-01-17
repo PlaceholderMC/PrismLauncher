@@ -148,10 +148,14 @@ void ResourceDownloadDialog::confirm()
     QStringList depNames;
     if (auto task = getModDependenciesTask(); task) {
         connect(task.get(), &Task::failed, this,
-                [&](QString reason) { CustomMessageBox::selectable(this, tr("Error"), reason, QMessageBox::Critical)->exec(); });
+                [this](QString reason) { CustomMessageBox::selectable(this, tr("Error"), reason, QMessageBox::Critical)->exec(); });
 
-        connect(task.get(), &Task::succeeded, this, [&]() {
-            QStringList warnings = task->warnings();
+        auto weak = task.toWeakRef();
+        connect(task.get(), &Task::succeeded, this, [this, weak]() {
+            QStringList warnings;
+            if (auto task = weak.lock()) {
+                warnings = task->warnings();
+            }
             if (warnings.count()) {
                 CustomMessageBox::selectable(this, tr("Warnings"), warnings.join('\n'), QMessageBox::Warning)->exec();
             }
@@ -258,7 +262,9 @@ void ResourceDownloadDialog::selectedPageChanged(BasePage* previous, BasePage* s
     }
 
     // Same effect as having a global search bar
-    selectedPage()->setSearchTerm(prev_page->getSearchTerm());
+    ResourcePage* result = dynamic_cast<ResourcePage*>(selected);
+    Q_ASSERT(result != nullptr);
+    result->setSearchTerm(prev_page->getSearchTerm());
 }
 
 ModDownloadDialog::ModDownloadDialog(QWidget* parent, const std::shared_ptr<ModFolderModel>& mods, BaseInstance* instance)
@@ -296,7 +302,7 @@ GetModDependenciesTask::Ptr ModDownloadDialog::getModDependenciesTask()
                 selectedVers.append(std::make_shared<GetModDependenciesTask::PackDependency>(selected->getPack(), selected->getVersion()));
             }
 
-            return makeShared<GetModDependenciesTask>(this, m_instance, model, selectedVers);
+            return makeShared<GetModDependenciesTask>(m_instance, model, selectedVers);
         }
     }
     return nullptr;
@@ -375,7 +381,7 @@ QList<BasePage*> ShaderPackDownloadDialog::getPages()
     return pages;
 }
 
-void ModDownloadDialog::setModMetadata(std::shared_ptr<Metadata::ModStruct> meta)
+void ResourceDownloadDialog::setResourceMetadata(const std::shared_ptr<Metadata::ModStruct>& meta)
 {
     switch (meta->provider) {
         case ModPlatform::ResourceProvider::MODRINTH:

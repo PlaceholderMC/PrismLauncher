@@ -38,7 +38,7 @@
  * If the component list changes, start over.
  */
 
-ComponentUpdateTask::ComponentUpdateTask(Mode mode, Net::Mode netmode, PackProfile* list, QObject* parent) : Task(parent)
+ComponentUpdateTask::ComponentUpdateTask(Mode mode, Net::Mode netmode, PackProfile* list) : Task()
 {
     d.reset(new ComponentUpdateTaskData);
     d->m_profile = list;

@@ -81,9 +81,9 @@ QString getSupportedJavaArchitecture()
         if (arch == "arm64")
             return "mac-os-arm64";
         if (arch.contains("64"))
-            return "mac-os-64";
+            return "mac-os-x64";
         if (arch.contains("86"))
-            return "mac-os-86";
+            return "mac-os-x86";
         // Unknown, maybe something new, appending arch
         return "mac-os-" + arch;
     } else if (sys == "linux") {

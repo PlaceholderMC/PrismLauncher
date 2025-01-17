@@ -62,7 +62,7 @@ class ResourcePage : public QWidget, public BasePage {
 
     [[nodiscard]] bool setCurrentPack(ModPlatform::IndexedPack::Ptr);
     [[nodiscard]] auto getCurrentPack() const -> ModPlatform::IndexedPack::Ptr;
-    [[nodiscard]] auto getDialog() const -> const ResourceDownloadDialog* { return m_parent_dialog; }
+    [[nodiscard]] auto getDialog() const -> const ResourceDownloadDialog* { return m_parentDialog; }
     [[nodiscard]] auto getModel() const -> ResourceModel* { return m_model; }
 
    protected:
@@ -99,22 +99,22 @@ class ResourcePage : public QWidget, public BasePage {
     virtual void openUrl(const QUrl&);
 
    public:
-    BaseInstance& m_base_instance;
+    BaseInstance& m_baseInstance;
 
    protected:
     Ui::ResourcePage* m_ui;
 
-    ResourceDownloadDialog* m_parent_dialog = nullptr;
+    ResourceDownloadDialog* m_parentDialog = nullptr;
     ResourceModel* m_model = nullptr;
 
-    int m_selected_version_index = -1;
+    int m_selectedVersionIndex = -1;
 
-    ProgressWidget m_fetch_progress;
+    ProgressWidget m_fetchProgress;
 
     // Used to do instant searching with a delay to cache quick changes
-    QTimer m_search_timer;
+    QTimer m_searchTimer;
 
-    bool m_do_not_jump_to_mod = false;
+    bool m_doNotJumpToMod = false;
 };
 
 }  // namespace ResourceDownload

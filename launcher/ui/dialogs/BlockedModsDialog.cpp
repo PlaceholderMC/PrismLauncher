@@ -46,11 +46,13 @@ BlockedModsDialog::BlockedModsDialog(QWidget* parent, const QString& title, cons
     : QDialog(parent), ui(new Ui::BlockedModsDialog), m_mods(mods), m_hash_type(hash_type)
 {
     m_hashing_task = shared_qobject_ptr<ConcurrentTask>(
-        new ConcurrentTask(this, "MakeHashesTask", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt()));
+        new ConcurrentTask("MakeHashesTask", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt()));
     connect(m_hashing_task.get(), &Task::finished, this, &BlockedModsDialog::hashTaskFinished);
 
     ui->setupUi(this);
 
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("Cancel"));
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("OK"));
     m_openMissingButton = ui->buttonBox->addButton(tr("Open Missing"), QDialogButtonBox::ActionRole);
     connect(m_openMissingButton, &QPushButton::clicked, this, [this]() { openAll(true); });
 
@@ -286,6 +288,8 @@ void BlockedModsDialog::checkMatchHash(QString hash, QString path)
 
     qDebug() << "[Blocked Mods Dialog] Checking for match on hash: " << hash << "| From path:" << path;
 
+    auto downloadDir = QFileInfo(APPLICATION->settings()->get("DownloadsDir").toString()).absoluteFilePath();
+    auto moveFiles = APPLICATION->settings()->get("MoveModsFromDownloadsDir").toBool();
     for (auto& mod : m_mods) {
         if (mod.matched) {
             continue;
@@ -293,6 +297,9 @@ void BlockedModsDialog::checkMatchHash(QString hash, QString path)
         if (mod.hash.compare(hash, Qt::CaseInsensitive) == 0) {
             mod.matched = true;
             mod.localPath = path;
+            if (moveFiles) {
+                mod.move = QFileInfo(path).absoluteFilePath().startsWith(downloadDir);
+            }
             match = true;
 
             qDebug() << "[Blocked Mods Dialog] Hash match found:" << mod.name << hash << "| From path:" << path;
@@ -344,6 +351,8 @@ bool BlockedModsDialog::checkValidPath(QString path)
         return fsName.compare(metaName) == 0;
     };
 
+    auto downloadDir = QFileInfo(APPLICATION->settings()->get("DownloadsDir").toString()).absoluteFilePath();
+    auto moveFiles = APPLICATION->settings()->get("MoveModsFromDownloadsDir").toBool();
     for (auto& mod : m_mods) {
         if (compare(filename, mod.name)) {
             // if the mod is not yet matched and doesn't have a hash then
@@ -351,6 +360,9 @@ bool BlockedModsDialog::checkValidPath(QString path)
             if (!mod.matched && mod.hash.isEmpty()) {
                 mod.matched = true;
                 mod.localPath = path;
+                if (moveFiles) {
+                    mod.move = QFileInfo(path).absoluteFilePath().startsWith(downloadDir);
+                }
                 return false;
             }
             qDebug() << "[Blocked Mods Dialog] Name match found:" << mod.name << "| From path:" << path;

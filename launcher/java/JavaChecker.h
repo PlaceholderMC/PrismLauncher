@@ -1,7 +1,6 @@
 #pragma once
 #include <QProcess>
 #include <QTimer>
-#include <memory>
 
 #include "JavaVersion.h"
 #include "QObjectPtr.h"
@@ -26,7 +25,7 @@ class JavaChecker : public Task {
         enum class Validity { Errored, ReturnedInvalidData, Valid } validity = Validity::Errored;
     };
 
-    explicit JavaChecker(QString path, QString args, int minMem = 0, int maxMem = 0, int permGen = 0, int id = 0, QObject* parent = 0);
+    explicit JavaChecker(QString path, QString args, int minMem = 0, int maxMem = 0, int permGen = 0, int id = 0);
 
    signals:
     void checkFinished(const Result& result);

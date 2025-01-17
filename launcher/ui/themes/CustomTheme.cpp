@@ -181,7 +181,7 @@ bool CustomTheme::read(const QString& path, bool& hasCustomLogColors)
             m_widgets = Json::requireString(root, "widgets", "Qt widget theme");
             m_qssFilePath = Json::ensureString(root, "qssFilePath", "themeStyle.css");
 
-            auto readColor = [&](const QJsonObject& colors, const QString& colorName) -> QColor {
+            auto readColor = [](const QJsonObject& colors, const QString& colorName) -> QColor {
                 auto colorValue = Json::ensureString(colors, colorName, QString());
                 if (!colorValue.isEmpty()) {
                     QColor color(colorValue);
@@ -196,7 +196,7 @@ bool CustomTheme::read(const QString& path, bool& hasCustomLogColors)
 
             if (root.contains("colors")) {
                 auto colorsRoot = Json::requireObject(root, "colors");
-                auto readAndSetPaletteColor = [&](QPalette::ColorRole role, const QString& colorName) {
+                auto readAndSetPaletteColor = [this, readColor, colorsRoot](QPalette::ColorRole role, const QString& colorName) {
                     auto color = readColor(colorsRoot, colorName);
                     if (color.isValid()) {
                         m_palette.setColor(role, color);
@@ -229,7 +229,7 @@ bool CustomTheme::read(const QString& path, bool& hasCustomLogColors)
                 hasCustomLogColors = true;
 
                 auto logColorsRoot = Json::requireObject(root, "logColors");
-                auto readAndSetLogColor = [&](MessageLevel::Enum level, bool fg, const QString& colorName) {
+                auto readAndSetLogColor = [this, readColor, logColorsRoot](MessageLevel::Enum level, bool fg, const QString& colorName) {
                     auto color = readColor(logColorsRoot, colorName);
                     if (color.isValid()) {
                         if (fg)

@@ -163,7 +163,7 @@ void JavaListLoadTask::executeTask()
     JavaUtils ju;
     QList<QString> candidate_paths = m_only_managed_versions ? getPrismJavaBundle() : ju.FindJavaPaths();
 
-    ConcurrentTask::Ptr job(new ConcurrentTask(this, "Java detection", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt()));
+    ConcurrentTask::Ptr job(new ConcurrentTask("Java detection", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt()));
     m_job.reset(job);
     connect(m_job.get(), &Task::finished, this, &JavaListLoadTask::javaCheckerFinished);
     connect(m_job.get(), &Task::progress, this, &Task::setProgress);
@@ -171,7 +171,7 @@ void JavaListLoadTask::executeTask()
     qDebug() << "Probing the following Java paths: ";
     int id = 0;
     for (QString candidate : candidate_paths) {
-        auto checker = new JavaChecker(candidate, "", 0, 0, 0, id, this);
+        auto checker = new JavaChecker(candidate, "", 0, 0, 0, id);
         connect(checker, &JavaChecker::checkFinished, [this](const JavaChecker::Result& result) { m_results << result; });
         job->addTask(Task::Ptr(checker));
         id++;

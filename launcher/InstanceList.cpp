@@ -487,7 +487,7 @@ InstanceList::InstListError InstanceList::loadList()
         int front_bookmark = -1;
         int back_bookmark = -1;
         int currentItem = -1;
-        auto removeNow = [&]() {
+        auto removeNow = [this, &front_bookmark, &back_bookmark, &currentItem]() {
             beginRemoveRows(QModelIndex(), front_bookmark, back_bookmark);
             m_instances.erase(m_instances.begin() + front_bookmark, m_instances.begin() + back_bookmark + 1);
             endRemoveRows();

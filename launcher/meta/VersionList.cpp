@@ -34,8 +34,7 @@ VersionList::VersionList(const QString& uid, QObject* parent) : BaseVersionList(
 
 Task::Ptr VersionList::getLoadTask()
 {
-    auto loadTask =
-        makeShared<SequentialTask>(this, tr("Load meta for %1", "This is for the task name that loads the meta index.").arg(m_uid));
+    auto loadTask = makeShared<SequentialTask>(tr("Load meta for %1", "This is for the task name that loads the meta index.").arg(m_uid));
     loadTask->addTask(APPLICATION->metadataIndex()->loadTask(Net::Mode::Online));
     loadTask->addTask(this->loadTask(Net::Mode::Online));
     return loadTask;
@@ -159,8 +158,8 @@ Version::Ptr VersionList::getVersion(const QString& version)
 
 bool VersionList::hasVersion(QString version) const
 {
-    auto ver =
-        std::find_if(m_versions.constBegin(), m_versions.constEnd(), [&](Meta::Version::Ptr const& a) { return a->version() == version; });
+    auto ver = std::find_if(m_versions.constBegin(), m_versions.constEnd(),
+                            [version](Meta::Version::Ptr const& a) { return a->version() == version; });
     return (ver != m_versions.constEnd());
 }
 

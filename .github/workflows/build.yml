@@ -59,14 +59,14 @@ jobs:
             qt_ver: 5
             qt_host: linux
             qt_arch: ""
-            qt_version: "5.12.8"
+            qt_version: "5.15.2"
             qt_modules: "qtnetworkauth"
 
           - os: ubuntu-20.04
             qt_ver: 6
             qt_host: linux
             qt_arch: ""
-            qt_version: "6.2.4"
+            qt_version: "6.5.3"
             qt_modules: "qt5compat qtimageformats qtnetworkauth"
 
           - os: windows-2022
@@ -82,8 +82,10 @@ jobs:
             qt_ver: 6
             qt_host: windows
             qt_arch: ""
-            qt_version: "6.7.2"
+            qt_version: "6.7.3"
             qt_modules: "qt5compat qtimageformats qtnetworkauth"
+            nscurl_tag: "v24.9.26.122"
+            nscurl_sha256: "AEE6C4BE3CB6455858E9C1EE4B3AFE0DB9960FA03FE99CCDEDC28390D57CCBB0"
 
           - os: windows-2022
             name: "Windows-MSVC-arm64"
@@ -93,8 +95,10 @@ jobs:
             qt_ver: 6
             qt_host: windows
             qt_arch: "win64_msvc2019_arm64"
-            qt_version: "6.7.2"
+            qt_version: "6.7.3"
             qt_modules: "qt5compat qtimageformats qtnetworkauth"
+            nscurl_tag: "v24.9.26.122"
+            nscurl_sha256: "AEE6C4BE3CB6455858E9C1EE4B3AFE0DB9960FA03FE99CCDEDC28390D57CCBB0"
 
           - os: macos-14
             name: macOS
@@ -102,7 +106,7 @@ jobs:
             qt_ver: 6
             qt_host: mac
             qt_arch: ""
-            qt_version: "6.7.2"
+            qt_version: "6.7.3"
             qt_modules: "qt5compat qtimageformats qtnetworkauth"
 
           - os: macos-14
@@ -163,13 +167,13 @@ jobs:
 
       - name: Setup ccache
         if: (runner.os != 'Windows' || matrix.msystem == '') && inputs.build_type == 'Debug'
-        uses: hendrikmuhs/ccache-action@v1.2.14
+        uses: hendrikmuhs/ccache-action@v1.2.16
         with:
           key: ${{ matrix.os }}-qt${{ matrix.qt_ver }}-${{ matrix.architecture }}
 
       - name: Retrieve ccache cache (Windows MinGW-w64)
         if: runner.os == 'Windows' && matrix.msystem != '' && inputs.build_type == 'Debug'
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.2.0
         with:
           path: '${{ github.workspace }}\.ccache'
           key: ${{ matrix.os }}-mingw-w64-ccache-${{ github.run_id }}
@@ -202,7 +206,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install ninja-build extra-cmake-modules scdoc appstream
+          sudo apt-get -y install ninja-build extra-cmake-modules scdoc appstream libxcb-cursor-dev
 
       - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
@@ -376,11 +380,13 @@ jobs:
 
           if [ -n '${{ secrets.APPLE_CODESIGN_ID }}' ]; then
             APPLE_CODESIGN_ID='${{ secrets.APPLE_CODESIGN_ID }}'
+            ENTITLEMENTS_FILE='../program_info/App.entitlements'
           else
             APPLE_CODESIGN_ID='-'
+            ENTITLEMENTS_FILE='../program_info/AdhocSignedApp.entitlements'
           fi
 
-          sudo codesign --sign "$APPLE_CODESIGN_ID" --deep --force --entitlements "../program_info/App.entitlements" --options runtime "PrismLauncher.app/Contents/MacOS/prismlauncher"
+          sudo codesign --sign "$APPLE_CODESIGN_ID" --deep --force --entitlements "$ENTITLEMENTS_FILE" --options runtime "PrismLauncher.app/Contents/MacOS/prismlauncher"
           mv "PrismLauncher.app" "Prism Launcher.app"
 
       - name: Notarize (macOS)
@@ -406,9 +412,8 @@ jobs:
         if: matrix.name == 'macOS'
         run: |
           if [ '${{ secrets.SPARKLE_ED25519_KEY }}' != '' ]; then
-            brew install openssl@3
             echo '${{ secrets.SPARKLE_ED25519_KEY }}' > ed25519-priv.pem
-            signature=$(/usr/local/opt/openssl@3/bin/openssl pkeyutl -sign -rawin -in ${{ github.workspace }}/PrismLauncher.zip -inkey ed25519-priv.pem | openssl base64 | tr -d \\n)
+            signature=$(/opt/homebrew/opt/openssl@3/bin/openssl pkeyutl -sign -rawin -in ${{ github.workspace }}/PrismLauncher.zip -inkey ed25519-priv.pem | openssl base64 | tr -d \\n)
             rm ed25519-priv.pem
             cat >> $GITHUB_STEP_SUMMARY << EOF
           ### Artifact Information :information_source:
@@ -474,6 +479,16 @@ jobs:
       - name: Package (Windows, installer)
         if: runner.os == 'Windows'
         run: |
+          if ('${{ matrix.nscurl_tag }}') {
+            New-Item -Name NSISPlugins -ItemType Directory
+            Invoke-Webrequest https://github.com/negrutiu/nsis-nscurl/releases/download/${{ matrix.nscurl_tag }}/NScurl.zip -OutFile NSISPlugins\NScurl.zip
+            $nscurl_hash = Get-FileHash NSISPlugins\NScurl.zip -Algorithm Sha256 | Select-Object -ExpandProperty Hash
+            if ( $nscurl_hash -ne "${{ matrix.nscurl_sha256 }}") {
+              echo "::error:: NSCurl.zip sha256 mismatch"
+              exit 1
+            }
+            Expand-Archive -Path NSISPlugins\NScurl.zip -DestinationPath NSISPlugins\NScurl
+          }
           cd ${{ env.INSTALL_DIR }}
           makensis -NOCD "${{ github.workspace }}/${{ env.BUILD_DIR }}/program_info/win_install.nsi"
 
@@ -620,19 +635,24 @@ jobs:
   flatpak:
     runs-on: ubuntu-latest
     container:
-      image: bilelmoussaoui/flatpak-github-actions:kde-6.7
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.8
       options: --privileged
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         if: inputs.build_type == 'Debug'
         with:
-          submodules: "true"
+          submodules: true
+
+      - name: Set short version
+        shell: bash
+        run: echo "VERSION=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Build Flatpak (Linux)
         if: inputs.build_type == 'Debug'
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: "Prism Launcher.flatpak"
+          bundle: PrismLauncher-${{ runner.os }}-${{ env.VERSION }}-Flatpak.flatpak
           manifest-path: flatpak/org.prismlauncher.PrismLauncher.yml
 
   nix:
@@ -658,7 +678,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v27
+        uses: cachix/install-nix-action@v30
 
         # For PRs
       - name: Setup Nix Magic Cache

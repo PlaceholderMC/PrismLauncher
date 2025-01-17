@@ -132,9 +132,9 @@ class InstallJavaPage : public QWidget, public BasePage {
         m_recommended_majors = majors;
         recommendedFilterChanged();
     }
-    void setRecomend(bool recomend)
+    void setRecommend(bool recommend)
     {
-        m_recommend = recomend;
+        m_recommend = recommend;
         recommendedFilterChanged();
     }
     void recommendedFilterChanged()
@@ -202,7 +202,7 @@ InstallDialog::InstallDialog(const QString& uid, BaseInstance* instance, QWidget
     recommendedCheckBox->setCheckState(Qt::CheckState::Checked);
     connect(recommendedCheckBox, &QCheckBox::stateChanged, this, [this](int state) {
         for (BasePage* page : container->getPages()) {
-            pageCast(page)->setRecomend(state == Qt::Checked);
+            pageCast(page)->setRecommend(state == Qt::Checked);
         }
     });
 
@@ -212,6 +212,7 @@ InstallDialog::InstallDialog(const QString& uid, BaseInstance* instance, QWidget
     buttons->setOrientation(Qt::Horizontal);
     buttons->setStandardButtons(QDialogButtonBox::Cancel | QDialogButtonBox::Ok);
     buttons->button(QDialogButtonBox::Ok)->setText(tr("Download"));
+    buttons->button(QDialogButtonBox::Cancel)->setText(tr("Cancel"));
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     buttonLayout->addWidget(buttons);
@@ -260,7 +261,7 @@ InstallDialog::InstallDialog(const QString& uid, BaseInstance* instance, QWidget
             container->selectPage(page->id());
 
         auto cast = pageCast(page);
-        cast->setRecomend(true);
+        cast->setRecommend(true);
         connect(cast, &InstallJavaPage::selectionChanged, this, [this, cast] { validate(cast); });
         if (!recommendedJavas.isEmpty()) {
             cast->setRecommendedMajors(recommendedJavas);
@@ -316,7 +317,7 @@ void InstallDialog::done(int result)
                         deletePath();
                 }
 #if defined(Q_OS_MACOS)
-                auto seq = makeShared<SequentialTask>(this, tr("Install Java"));
+                auto seq = makeShared<SequentialTask>(tr("Install Java"));
                 seq->addTask(task);
                 seq->addTask(makeShared<Java::SymlinkTask>(final_path));
                 task = seq;

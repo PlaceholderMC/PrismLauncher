@@ -138,7 +138,7 @@ void OtherLogsPage::on_btnReload_clicked()
         m_currentFile = QString();
         QMessageBox::critical(this, tr("Error"), tr("Unable to open %1 for reading: %2").arg(m_currentFile, file.errorString()));
     } else {
-        auto setPlainText = [&](const QString& text) {
+        auto setPlainText = [this](const QString& text) {
             QString fontFamily = APPLICATION->settings()->get("ConsoleFont").toString();
             bool conversionOk = false;
             int fontSize = APPLICATION->settings()->get("ConsoleFontSize").toInt(&conversionOk);
@@ -149,7 +149,7 @@ void OtherLogsPage::on_btnReload_clicked()
             doc->setDefaultFont(QFont(fontFamily, fontSize));
             ui->text->setPlainText(text);
         };
-        auto showTooBig = [&]() {
+        auto showTooBig = [setPlainText, &file]() {
             setPlainText(tr("The file (%1) is too big. You may want to open it in a viewer optimized "
                             "for large files.")
                              .arg(file.fileName()));

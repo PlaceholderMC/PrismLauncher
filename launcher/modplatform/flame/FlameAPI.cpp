@@ -221,12 +221,18 @@ QList<ResourceAPI::SortingMethod> FlameAPI::getSortingMethods() const
              { 8, "GameVersion", QObject::tr("Sort by Game Version") } };
 }
 
-Task::Ptr FlameAPI::getModCategories(std::shared_ptr<QByteArray> response)
+Task::Ptr FlameAPI::getCategories(std::shared_ptr<QByteArray> response, ModPlatform::ResourceType type)
 {
     auto netJob = makeShared<NetJob>(QString("Flame::GetCategories"), APPLICATION->network());
-    netJob->addNetAction(Net::ApiDownload::makeByteArray(QUrl("https://api.curseforge.com/v1/categories?gameId=432&classId=6"), response));
+    netJob->addNetAction(Net::ApiDownload::makeByteArray(
+        QUrl(QString("https://api.curseforge.com/v1/categories?gameId=432&classId=%1").arg(getClassId(type))), response));
     QObject::connect(netJob.get(), &Task::failed, [](QString msg) { qDebug() << "Flame failed to get categories:" << msg; });
     return netJob;
+}
+
+Task::Ptr FlameAPI::getModCategories(std::shared_ptr<QByteArray> response)
+{
+    return getCategories(response, ModPlatform::ResourceType::MOD);
 }
 
 QList<ModPlatform::Category> FlameAPI::loadModCategories(std::shared_ptr<QByteArray> response)
@@ -264,21 +270,35 @@ std::optional<ModPlatform::IndexedVersion> FlameAPI::getLatestVersion(QList<ModP
                                                                       QList<ModPlatform::ModLoaderType> instanceLoaders,
                                                                       ModPlatform::ModLoaderTypes modLoaders)
 {
-    // edge case: mod has installed for forge but the instance is fabric => fabric version will be prioritizated on update
-    auto bestVersion = [&versions](ModPlatform::ModLoaderTypes loader) {
-        std::optional<ModPlatform::IndexedVersion> ver;
-        for (auto file_tmp : versions) {
-            if (file_tmp.loaders & loader && (!ver.has_value() || file_tmp.date > ver->date)) {
-                ver = file_tmp;
+    QHash<ModPlatform::ModLoaderType, ModPlatform::IndexedVersion> bestMatch;
+    auto checkVersion = [&bestMatch](const ModPlatform::IndexedVersion& version, const ModPlatform::ModLoaderType& loader) {
+        if (bestMatch.contains(loader)) {
+            auto best = bestMatch.value(loader);
+            if (version.date > best.date) {
+                bestMatch[loader] = version;
+            }
+        } else {
+            bestMatch[loader] = version;
+        }
+    };
+    for (auto file_tmp : versions) {
+        auto loaders = ModPlatform::modLoaderTypesToList(file_tmp.loaders);
+        if (loaders.isEmpty()) {
+            checkVersion(file_tmp, ModPlatform::ModLoaderType(0));
+        } else {
+            for (auto loader : loaders) {
+                checkVersion(file_tmp, loader);
             }
         }
-        return ver;
-    };
-    for (auto l : instanceLoaders) {
-        auto ver = bestVersion(l);
-        if (ver.has_value()) {
-            return ver;
+    }
+    // edge case: mod has installed for forge but the instance is fabric => fabric version will be prioritizated on update
+    auto currentLoaders = instanceLoaders + ModPlatform::modLoaderTypesToList(modLoaders);
+    currentLoaders.append(ModPlatform::ModLoaderType(0));  // add a fallback in case the versions do not define a loader
+
+    for (auto loader : currentLoaders) {
+        if (bestMatch.contains(loader)) {
+            return bestMatch.value(loader);
         }
     }
-    return bestVersion(modLoaders);
+    return {};
 }

@@ -48,7 +48,7 @@ class ConcurrentTask : public Task {
    public:
     using Ptr = shared_qobject_ptr<ConcurrentTask>;
 
-    explicit ConcurrentTask(QObject* parent = nullptr, QString task_name = "", int max_concurrent = 6);
+    explicit ConcurrentTask(QString task_name = "", int max_concurrent = 6);
     ~ConcurrentTask() override;
 
     // safe to call before starting the task

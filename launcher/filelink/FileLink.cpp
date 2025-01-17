@@ -104,11 +104,11 @@ void FileLinkApp::joinServer(QString server)
 
     in.setDevice(&socket);
 
-    connect(&socket, &QLocalSocket::connected, this, [&]() { qDebug() << "connected to server"; });
+    connect(&socket, &QLocalSocket::connected, this, []() { qDebug() << "connected to server"; });
 
     connect(&socket, &QLocalSocket::readyRead, this, &FileLinkApp::readPathPairs);
 
-    connect(&socket, &QLocalSocket::errorOccurred, this, [&](QLocalSocket::LocalSocketError socketError) {
+    connect(&socket, &QLocalSocket::errorOccurred, this, [this](QLocalSocket::LocalSocketError socketError) {
         m_status = Failed;
         switch (socketError) {
             case QLocalSocket::ServerNotFoundError:
@@ -132,7 +132,7 @@ void FileLinkApp::joinServer(QString server)
         }
     });
 
-    connect(&socket, &QLocalSocket::disconnected, this, [&]() {
+    connect(&socket, &QLocalSocket::disconnected, this, [this]() {
         qDebug() << "disconnected from server, should exit";
         m_status = Succeeded;
         exit();

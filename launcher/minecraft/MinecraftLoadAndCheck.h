@@ -23,7 +23,7 @@ class MinecraftInstance;
 class MinecraftLoadAndCheck : public Task {
     Q_OBJECT
    public:
-    explicit MinecraftLoadAndCheck(MinecraftInstance* inst, Net::Mode netmode, QObject* parent = nullptr);
+    explicit MinecraftLoadAndCheck(MinecraftInstance* inst, Net::Mode netmode);
     virtual ~MinecraftLoadAndCheck() = default;
     void executeTask() override;
 

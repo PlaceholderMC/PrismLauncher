@@ -53,5 +53,11 @@ class ShaderPackPage : public ExternalResourcesPage {
     bool shouldDisplay() const override { return true; }
 
    public slots:
-    void downloadShaders();
+    void downloadShaderPack();
+    void updateShaderPacks();
+    void deleteShaderPackMetadata();
+    void changeShaderPackVersion();
+
+   private:
+    std::shared_ptr<ShaderPackFolderModel> m_model;
 };

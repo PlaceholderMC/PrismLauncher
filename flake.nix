@@ -85,23 +85,17 @@
 
       formatter = forAllSystems (system: nixpkgsFor.${system}.nixfmt-rfc-style);
 
-      overlays.default =
-        final: prev:
-        let
-          version = builtins.substring 0 8 self.lastModifiedDate or "dirty";
-        in
-        {
-          prismlauncher-unwrapped = prev.callPackage ./nix/unwrapped.nix {
-            inherit
-              libnbtplusplus
-              nix-filter
-              self
-              version
-              ;
-          };
-
-          prismlauncher = final.callPackage ./nix/wrapper.nix { };
+      overlays.default = final: prev: {
+        prismlauncher-unwrapped = prev.callPackage ./nix/unwrapped.nix {
+          inherit
+            libnbtplusplus
+            nix-filter
+            self
+            ;
         };
+
+        prismlauncher = final.callPackage ./nix/wrapper.nix { };
+      };
 
       packages = forAllSystems (
         system:

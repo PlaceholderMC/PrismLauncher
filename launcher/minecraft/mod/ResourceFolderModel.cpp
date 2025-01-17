@@ -11,20 +11,23 @@
 #include <QStyle>
 #include <QThreadPool>
 #include <QUrl>
+#include <utility>
 
 #include "Application.h"
 #include "FileSystem.h"
 
-#include "QVariantUtils.h"
-#include "StringUtils.h"
-#include "minecraft/mod/tasks/BasicFolderLoadTask.h"
+#include "minecraft/mod/tasks/ResourceFolderLoadTask.h"
 
+#include "Json.h"
+#include "minecraft/mod/tasks/LocalResourceUpdateTask.h"
+#include "modplatform/flame/FlameAPI.h"
+#include "modplatform/flame/FlameModIndex.h"
 #include "settings/Setting.h"
 #include "tasks/Task.h"
 #include "ui/dialogs/CustomMessageBox.h"
 
-ResourceFolderModel::ResourceFolderModel(QDir dir, BaseInstance* instance, QObject* parent, bool create_dir)
-    : QAbstractListModel(parent), m_dir(dir), m_instance(instance), m_watcher(this)
+ResourceFolderModel::ResourceFolderModel(const QDir& dir, BaseInstance* instance, bool is_indexed, bool create_dir, QObject* parent)
+    : QAbstractListModel(parent), m_dir(dir), m_instance(instance), m_watcher(this), m_is_indexed(is_indexed)
 {
     if (create_dir) {
         FS::ensureFolderPathExists(m_dir.absolutePath());
@@ -35,10 +38,9 @@ ResourceFolderModel::ResourceFolderModel(QDir dir, BaseInstance* instance, QObje
 
     connect(&m_watcher, &QFileSystemWatcher::directoryChanged, this, &ResourceFolderModel::directoryChanged);
     connect(&m_helper_thread_task, &ConcurrentTask::finished, this, [this] { m_helper_thread_task.clear(); });
-#ifndef LAUNCHER_TEST
-    // in tests the application macro doesn't work
-    m_helper_thread_task.setMaxConcurrent(APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt());
-#endif
+    if (APPLICATION_DYN) {  // in tests the application macro doesn't work
+        m_helper_thread_task.setMaxConcurrent(APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt());
+    }
 }
 
 ResourceFolderModel::~ResourceFolderModel()
@@ -49,6 +51,9 @@ ResourceFolderModel::~ResourceFolderModel()
 
 bool ResourceFolderModel::startWatching(const QStringList& paths)
 {
+    // Remove orphaned metadata next time
+    m_first_folder_load = true;
+
     if (m_is_watching)
         return false;
 
@@ -159,11 +164,55 @@ bool ResourceFolderModel::installResource(QString original_path)
     return false;
 }
 
-bool ResourceFolderModel::uninstallResource(QString file_name)
+bool ResourceFolderModel::installResourceWithFlameMetadata(QString path, ModPlatform::IndexedVersion& vers)
+{
+    if (vers.addonId.isValid()) {
+        ModPlatform::IndexedPack pack{
+            vers.addonId,
+            ModPlatform::ResourceProvider::FLAME,
+        };
+
+        QEventLoop loop;
+
+        auto response = std::make_shared<QByteArray>();
+        auto job = FlameAPI().getProject(vers.addonId.toString(), response);
+
+        QObject::connect(job.get(), &Task::failed, [&loop] { loop.quit(); });
+        QObject::connect(job.get(), &Task::aborted, &loop, &QEventLoop::quit);
+        QObject::connect(job.get(), &Task::succeeded, [response, this, &vers, &loop, &pack] {
+            QJsonParseError parse_error{};
+            QJsonDocument doc = QJsonDocument::fromJson(*response, &parse_error);
+            if (parse_error.error != QJsonParseError::NoError) {
+                qWarning() << "Error while parsing JSON response for mod info at " << parse_error.offset
+                           << " reason: " << parse_error.errorString();
+                qDebug() << *response;
+                return;
+            }
+            try {
+                auto obj = Json::requireObject(Json::requireObject(doc), "data");
+                FlameMod::loadIndexedPack(pack, obj);
+            } catch (const JSONValidationError& e) {
+                qDebug() << doc;
+                qWarning() << "Error while reading mod info: " << e.cause();
+            }
+            LocalResourceUpdateTask update_metadata(indexDir(), pack, vers);
+            QObject::connect(&update_metadata, &Task::finished, &loop, &QEventLoop::quit);
+            update_metadata.start();
+        });
+
+        job->start();
+
+        loop.exec();
+    }
+
+    return installResource(std::move(path));
+}
+
+bool ResourceFolderModel::uninstallResource(QString file_name, bool preserve_metadata)
 {
     for (auto& resource : m_resources) {
         if (resource->fileinfo().fileName() == file_name) {
-            auto res = resource->destroy(false);
+            auto res = resource->destroy(indexDir(), preserve_metadata, false);
 
             update();
 
@@ -179,18 +228,32 @@ bool ResourceFolderModel::deleteResources(const QModelIndexList& indexes)
         return true;
 
     for (auto i : indexes) {
-        if (i.column() != 0) {
+        if (i.column() != 0)
             continue;
-        }
 
         auto& resource = m_resources.at(i.row());
-
-        resource->destroy();
+        resource->destroy(indexDir());
     }
 
     update();
 
     return true;
+}
+
+void ResourceFolderModel::deleteMetadata(const QModelIndexList& indexes)
+{
+    if (indexes.isEmpty())
+        return;
+
+    for (auto i : indexes) {
+        if (i.column() != 0)
+            continue;
+
+        auto& resource = m_resources.at(i.row());
+        resource->destroyMetadata(indexDir());
+    }
+
+    update();
 }
 
 bool ResourceFolderModel::setResourceEnabled(const QModelIndexList& indexes, EnableAction action)
@@ -246,7 +309,7 @@ bool ResourceFolderModel::update()
     connect(m_current_update_task.get(), &Task::failed, this, &ResourceFolderModel::onUpdateFailed, Qt::ConnectionType::QueuedConnection);
     connect(
         m_current_update_task.get(), &Task::finished, this,
-        [=] {
+        [this] {
             m_current_update_task.reset();
             if (m_scheduled_update) {
                 m_scheduled_update = false;
@@ -262,7 +325,7 @@ bool ResourceFolderModel::update()
     return true;
 }
 
-void ResourceFolderModel::resolveResource(Resource* res)
+void ResourceFolderModel::resolveResource(Resource::Ptr res)
 {
     if (!res->shouldResolve()) {
         return;
@@ -278,11 +341,14 @@ void ResourceFolderModel::resolveResource(Resource* res)
     m_active_parse_tasks.insert(ticket, task);
 
     connect(
-        task.get(), &Task::succeeded, this, [=] { onParseSucceeded(ticket, res->internal_id()); }, Qt::ConnectionType::QueuedConnection);
-    connect(task.get(), &Task::failed, this, [=] { onParseFailed(ticket, res->internal_id()); }, Qt::ConnectionType::QueuedConnection);
+        task.get(), &Task::succeeded, this, [this, ticket, res] { onParseSucceeded(ticket, res->internal_id()); },
+        Qt::ConnectionType::QueuedConnection);
+    connect(
+        task.get(), &Task::failed, this, [this, ticket, res] { onParseFailed(ticket, res->internal_id()); },
+        Qt::ConnectionType::QueuedConnection);
     connect(
         task.get(), &Task::finished, this,
-        [=] {
+        [this, ticket] {
             m_active_parse_tasks.remove(ticket);
             emit parseFinished();
         },
@@ -297,7 +363,7 @@ void ResourceFolderModel::resolveResource(Resource* res)
 
 void ResourceFolderModel::onUpdateSucceeded()
 {
-    auto update_results = static_cast<BasicFolderLoadTask*>(m_current_update_task.get())->result();
+    auto update_results = static_cast<ResourceFolderLoadTask*>(m_current_update_task.get())->result();
 
     auto& new_resources = update_results->resources;
 
@@ -318,7 +384,7 @@ void ResourceFolderModel::onUpdateSucceeded()
 void ResourceFolderModel::onParseSucceeded(int ticket, QString resource_id)
 {
     auto iter = m_active_parse_tasks.constFind(ticket);
-    if (iter == m_active_parse_tasks.constEnd())
+    if (iter == m_active_parse_tasks.constEnd() || !m_resources_index.contains(resource_id))
         return;
 
     int row = m_resources_index[resource_id];
@@ -327,7 +393,11 @@ void ResourceFolderModel::onParseSucceeded(int ticket, QString resource_id)
 
 Task* ResourceFolderModel::createUpdateTask()
 {
-    return new BasicFolderLoadTask(m_dir);
+    auto index_dir = indexDir();
+    auto task = new ResourceFolderLoadTask(dir(), index_dir, m_is_indexed, m_first_folder_load,
+                                           [this](const QFileInfo& file) { return createResource(file); });
+    m_first_folder_load = false;
+    return task;
 }
 
 bool ResourceFolderModel::hasPendingParseTasks() const
@@ -417,6 +487,8 @@ QVariant ResourceFolderModel::data(const QModelIndex& index, int role) const
                     return m_resources[row]->name();
                 case DateColumn:
                     return m_resources[row]->dateTimeChanged();
+                case ProviderColumn:
+                    return m_resources[row]->provider();
                 case SizeColumn:
                     return m_resources[row]->sizeStr();
                 default:
@@ -488,22 +560,23 @@ QVariant ResourceFolderModel::headerData(int section, [[maybe_unused]] Qt::Orien
                 case ActiveColumn:
                 case NameColumn:
                 case DateColumn:
+                case ProviderColumn:
                 case SizeColumn:
                     return columnNames().at(section);
                 default:
                     return {};
             }
         case Qt::ToolTipRole: {
+            //: Here, resource is a generic term for external resources, like Mods, Resource Packs, Shader Packs, etc.
             switch (section) {
                 case ActiveColumn:
-                    //: Here, resource is a generic term for external resources, like Mods, Resource Packs, Shader Packs, etc.
                     return tr("Is the resource enabled?");
                 case NameColumn:
-                    //: Here, resource is a generic term for external resources, like Mods, Resource Packs, Shader Packs, etc.
                     return tr("The name of the resource.");
                 case DateColumn:
-                    //: Here, resource is a generic term for external resources, like Mods, Resource Packs, Shader Packs, etc.
                     return tr("The date and time this resource was last changed (or added).");
+                case ProviderColumn:
+                    return tr("The source provider of the resource.");
                 case SizeColumn:
                     return tr("The size of the resource.");
                 default:
@@ -630,7 +703,7 @@ QString ResourceFolderModel::instDirPath() const
 void ResourceFolderModel::onParseFailed(int ticket, QString resource_id)
 {
     auto iter = m_active_parse_tasks.constFind(ticket);
-    if (iter == m_active_parse_tasks.constEnd())
+    if (iter == m_active_parse_tasks.constEnd() || !m_resources_index.contains(resource_id))
         return;
 
     auto removed_index = m_resources_index[resource_id];
@@ -648,4 +721,127 @@ void ResourceFolderModel::onParseFailed(int ticket, QString resource_id)
         idx++;
     }
     endRemoveRows();
+}
+
+void ResourceFolderModel::applyUpdates(QSet<QString>& current_set, QSet<QString>& new_set, QMap<QString, Resource::Ptr>& new_resources)
+{
+    // see if the kept resources changed in some way
+    {
+        QSet<QString> kept_set = current_set;
+        kept_set.intersect(new_set);
+
+        for (auto const& kept : kept_set) {
+            auto row_it = m_resources_index.constFind(kept);
+            Q_ASSERT(row_it != m_resources_index.constEnd());
+            auto row = row_it.value();
+
+            auto& new_resource = new_resources[kept];
+            auto const& current_resource = m_resources.at(row);
+
+            if (new_resource->dateTimeChanged() == current_resource->dateTimeChanged()) {
+                // no significant change, ignore...
+                continue;
+            }
+
+            // If the resource is resolving, but something about it changed, we don't want to
+            // continue the resolving.
+            if (current_resource->isResolving()) {
+                auto ticket = current_resource->resolutionTicket();
+                if (m_active_parse_tasks.contains(ticket)) {
+                    auto task = (*m_active_parse_tasks.find(ticket)).get();
+                    task->abort();
+                }
+            }
+
+            m_resources[row].reset(new_resource);
+            resolveResource(m_resources.at(row));
+            emit dataChanged(index(row, 0), index(row, columnCount(QModelIndex()) - 1));
+        }
+    }
+
+    // remove resources no longer present
+    {
+        QSet<QString> removed_set = current_set;
+        removed_set.subtract(new_set);
+
+        QList<int> removed_rows;
+        for (auto& removed : removed_set)
+            removed_rows.append(m_resources_index[removed]);
+
+        std::sort(removed_rows.begin(), removed_rows.end(), std::greater<int>());
+
+        for (auto& removed_index : removed_rows) {
+            auto removed_it = m_resources.begin() + removed_index;
+
+            Q_ASSERT(removed_it != m_resources.end());
+
+            if ((*removed_it)->isResolving()) {
+                auto ticket = (*removed_it)->resolutionTicket();
+                if (m_active_parse_tasks.contains(ticket)) {
+                    auto task = (*m_active_parse_tasks.find(ticket)).get();
+                    task->abort();
+                }
+            }
+
+            beginRemoveRows(QModelIndex(), removed_index, removed_index);
+            m_resources.erase(removed_it);
+            endRemoveRows();
+        }
+    }
+
+    // add new resources to the end
+    {
+        QSet<QString> added_set = new_set;
+        added_set.subtract(current_set);
+
+        // When you have a Qt build with assertions turned on, proceeding here will abort the application
+        if (added_set.size() > 0) {
+            beginInsertRows(QModelIndex(), static_cast<int>(m_resources.size()),
+                            static_cast<int>(m_resources.size() + added_set.size() - 1));
+
+            for (auto& added : added_set) {
+                auto res = new_resources[added];
+                m_resources.append(res);
+                resolveResource(m_resources.last());
+            }
+
+            endInsertRows();
+        }
+    }
+
+    // update index
+    {
+        m_resources_index.clear();
+        int idx = 0;
+        for (auto const& mod : qAsConst(m_resources)) {
+            m_resources_index[mod->internal_id()] = idx;
+            idx++;
+        }
+    }
+}
+Resource::Ptr ResourceFolderModel::find(QString id)
+{
+    auto iter =
+        std::find_if(m_resources.constBegin(), m_resources.constEnd(), [&](Resource::Ptr const& r) { return r->internal_id() == id; });
+    if (iter == m_resources.constEnd())
+        return nullptr;
+    return *iter;
+}
+QList<Resource*> ResourceFolderModel::allResources()
+{
+    QList<Resource*> result;
+    result.reserve(m_resources.size());
+    for (const Resource ::Ptr& resource : m_resources)
+        result.append((resource.get()));
+    return result;
+}
+QList<Resource*> ResourceFolderModel::selectedResources(const QModelIndexList& indexes)
+{
+    QList<Resource*> result;
+    for (const QModelIndex& index : indexes) {
+        if (index.column() != 0)
+            continue;
+        result.append(&at(index.row()));
+    }
+    return result;
 }

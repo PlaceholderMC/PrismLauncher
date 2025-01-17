@@ -176,7 +176,7 @@ VersionFilePtr OneSixVersionFormat::versionFileFromJson(const QJsonDocument& doc
         }
     }
 
-    auto readLibs = [&](const char* which, QList<LibraryPtr>& outList) {
+    auto readLibs = [&root, &out, &filename](const char* which, QList<LibraryPtr>& outList) {
         for (auto libVal : requireArray(root.value(which))) {
             QJsonObject libObj = requireObject(libVal);
             // parse the library

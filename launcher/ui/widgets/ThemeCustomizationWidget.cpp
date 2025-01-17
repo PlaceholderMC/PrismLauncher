@@ -87,7 +87,7 @@ void ThemeCustomizationWidget::applyIconTheme(int index)
 {
     auto settings = APPLICATION->settings();
     auto originalIconTheme = settings->get("IconTheme").toString();
-    auto newIconTheme = ui->iconsComboBox->currentData().toString();
+    auto newIconTheme = ui->iconsComboBox->itemData(index).toString();
     if (originalIconTheme != newIconTheme) {
         settings->set("IconTheme", newIconTheme);
         APPLICATION->themeManager()->applyCurrentlySelectedTheme();
@@ -100,7 +100,7 @@ void ThemeCustomizationWidget::applyWidgetTheme(int index)
 {
     auto settings = APPLICATION->settings();
     auto originalAppTheme = settings->get("ApplicationTheme").toString();
-    auto newAppTheme = ui->widgetStyleComboBox->currentData().toString();
+    auto newAppTheme = ui->widgetStyleComboBox->itemData(index).toString();
     if (originalAppTheme != newAppTheme) {
         settings->set("ApplicationTheme", newAppTheme);
         APPLICATION->themeManager()->applyCurrentlySelectedTheme();
@@ -113,7 +113,7 @@ void ThemeCustomizationWidget::applyCatTheme(int index)
 {
     auto settings = APPLICATION->settings();
     auto originalCat = settings->get("BackgroundCat").toString();
-    auto newCat = ui->backgroundCatComboBox->currentData().toString();
+    auto newCat = ui->backgroundCatComboBox->itemData(index).toString();
     if (originalCat != newCat) {
         settings->set("BackgroundCat", newCat);
     }

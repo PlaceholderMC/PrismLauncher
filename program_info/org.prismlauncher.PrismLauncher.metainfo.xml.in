@@ -4,7 +4,7 @@
   <launchable type="desktop-id">org.prismlauncher.PrismLauncher.desktop</launchable>
   <name>Prism Launcher</name>
   <developer_name>Prism Launcher Contributors</developer_name>
-  <summary>A custom launcher for Minecraft that allows you to easily manage multiple installations of Minecraft at once</summary>
+  <summary>Custom Minecraft Launcher to easily manage multiple Minecraft installations at once</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
   <url type="homepage">https://prismlauncher.org/</url>

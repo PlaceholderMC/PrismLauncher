@@ -14,7 +14,7 @@ class ComponentUpdateTask : public Task {
     enum class Mode { Launch, Resolution };
 
    public:
-    explicit ComponentUpdateTask(Mode mode, Net::Mode netmode, PackProfile* list, QObject* parent = 0);
+    explicit ComponentUpdateTask(Mode mode, Net::Mode netmode, PackProfile* list);
     virtual ~ComponentUpdateTask();
 
    protected:

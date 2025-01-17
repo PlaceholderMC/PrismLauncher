@@ -641,22 +641,22 @@ void PackInstallTask::installConfigs()
     jobPtr->addNetAction(dl);
     archivePath = entry->getFullPath();
 
-    connect(jobPtr.get(), &NetJob::succeeded, this, [&]() {
+    connect(jobPtr.get(), &NetJob::succeeded, this, [this]() {
         abortable = false;
         jobPtr.reset();
         extractConfigs();
     });
-    connect(jobPtr.get(), &NetJob::failed, [&](QString reason) {
+    connect(jobPtr.get(), &NetJob::failed, [this](QString reason) {
         abortable = false;
         jobPtr.reset();
         emitFailed(reason);
     });
-    connect(jobPtr.get(), &NetJob::progress, [&](qint64 current, qint64 total) {
+    connect(jobPtr.get(), &NetJob::progress, [this](qint64 current, qint64 total) {
         abortable = true;
         setProgress(current, total);
     });
     connect(jobPtr.get(), &NetJob::stepProgress, this, &PackInstallTask::propagateStepProgress);
-    connect(jobPtr.get(), &NetJob::aborted, [&] {
+    connect(jobPtr.get(), &NetJob::aborted, [this] {
         abortable = false;
         jobPtr.reset();
         emitAborted();
@@ -685,8 +685,8 @@ void PackInstallTask::extractConfigs()
     m_extractFuture =
         QtConcurrent::run(QThreadPool::globalInstance(), MMCZip::extractDir, archivePath, extractDir.absolutePath() + "/minecraft");
 #endif
-    connect(&m_extractFutureWatcher, &QFutureWatcher<QStringList>::finished, this, [&]() { downloadMods(); });
-    connect(&m_extractFutureWatcher, &QFutureWatcher<QStringList>::canceled, this, [&]() { emitAborted(); });
+    connect(&m_extractFutureWatcher, &QFutureWatcher<QStringList>::finished, this, [this]() { downloadMods(); });
+    connect(&m_extractFutureWatcher, &QFutureWatcher<QStringList>::canceled, this, [this]() { emitAborted(); });
     m_extractFutureWatcher.setFuture(m_extractFuture);
 }
 

@@ -76,6 +76,7 @@ class ResourceAPI {
         std::optional<std::list<Version> > versions;
         std::optional<QString> side;
         std::optional<QStringList> categoryIds;
+        bool openSource;
     };
     struct SearchCallbacks {
         std::function<void(QJsonDocument&)> on_succeed;
@@ -86,7 +87,7 @@ class ResourceAPI {
     struct VersionSearchArgs {
         ModPlatform::IndexedPack pack;
 
-        std::optional<std::list<Version> > mcVersions;
+        std::optional<std::list<Version>> mcVersions;
         std::optional<ModPlatform::ModLoaderTypes> loaders;
 
         VersionSearchArgs(VersionSearchArgs const&) = default;

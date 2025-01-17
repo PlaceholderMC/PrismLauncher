@@ -56,6 +56,29 @@
 #include <settings/SettingsObject.h>
 #include "Application.h"
 
+constexpr int MaxMclogsLines = 25000;
+constexpr int InitialMclogsLines = 10000;
+constexpr int FinalMclogsLines = 14900;
+
+QString truncateLogForMclogs(const QString& logContent)
+{
+    QStringList lines = logContent.split("\n");
+    if (lines.size() > MaxMclogsLines) {
+        QString truncatedLog = lines.mid(0, InitialMclogsLines).join("\n");
+        truncatedLog +=
+            "\n\n\n\n\n\n\n\n\n\n"
+            "------------------------------------------------------------\n"
+            "----------------------- Log truncated ----------------------\n"
+            "------------------------------------------------------------\n"
+            "----- Middle portion omitted to fit mclo.gs size limits ----\n"
+            "------------------------------------------------------------\n"
+            "\n\n\n\n\n\n\n\n\n\n";
+        truncatedLog += lines.mid(lines.size() - FinalMclogsLines - 1).join("\n");
+        return truncatedLog;
+    }
+    return logContent;
+}
+
 std::optional<QString> GuiUtil::uploadPaste(const QString& name, const QFileInfo& filePath, QWidget* parentWidget)
 {
     return uploadPaste(name, FS::read(filePath.absoluteFilePath()), parentWidget);
@@ -66,6 +89,7 @@ std::optional<QString> GuiUtil::uploadPaste(const QString& name, const QString& 
     ProgressDialog dialog(parentWidget);
     auto pasteType = static_cast<PasteUpload::PasteType>(APPLICATION->settings()->get("PastebinType").toInt());
     auto baseURL = APPLICATION->settings()->get("PastebinCustomAPIBase").toString();
+    bool shouldTruncate = false;
 
     if (baseURL.isEmpty())
         baseURL = PasteUpload::PasteTypes[pasteType].defaultBase;
@@ -81,12 +105,33 @@ std::optional<QString> GuiUtil::uploadPaste(const QString& name, const QString& 
 
         if (response != QMessageBox::Yes)
             return {};
+
+        if (baseURL == "https://api.mclo.gs" && log.count("\n") > MaxMclogsLines) {
+            auto truncateResponse = CustomMessageBox::selectable(
+                                        parentWidget, QObject::tr("Confirm Truncation"),
+                                        QObject::tr("The log has %1 lines, exceeding mclo.gs' limit of %2.\n"
+                                                    "The launcher can keep the first %3 and last %4 lines, trimming the middle.\n\n"
+                                                    "If you choose 'No', mclo.gs will only keep the first %2 lines, cutting off "
+                                                    "potentially useful info like crashes at the end.\n\n"
+                                                    "Proceed with truncation?")
+                                            .arg(log.count("\n"))
+                                            .arg(MaxMclogsLines)
+                                            .arg(InitialMclogsLines)
+                                            .arg(FinalMclogsLines),
+                                        QMessageBox::Warning, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, QMessageBox::No)
+                                        ->exec();
+
+            if (truncateResponse == QMessageBox::Cancel) {
+                return {};
+            }
+            shouldTruncate = truncateResponse == QMessageBox::Yes;
+        }
     }
 
     auto result = std::make_shared<PasteUpload::Result>();
     auto job = NetJob::Ptr(new NetJob("Log Upload", APPLICATION->network()));
 
-    job->addNetAction(PasteUpload::make(log, pasteType, baseURL, result));
+    job->addNetAction(PasteUpload::make(shouldTruncate ? truncateLogForMclogs(log) : log, pasteType, baseURL, result));
     QObject::connect(job.get(), &Task::failed, [parentWidget](QString reason) {
         CustomMessageBox::selectable(parentWidget, QObject::tr("Failed to upload logs!"), reason, QMessageBox::Critical)->show();
     });
@@ -141,7 +186,7 @@ static QStringList BrowseForFileInternal(QString context,
 
     QFileDialog w(parentWidget, caption);
     QSet<QString> locations;
-    auto f = [&](QStandardPaths::StandardLocation l) {
+    auto f = [&locations](QStandardPaths::StandardLocation l) {
         QString location = QStandardPaths::writableLocation(l);
         QFileInfo finfo(location);
         if (!finfo.exists()) {

@@ -30,7 +30,7 @@ void ResourcePackResourcePage::triggerSearch()
     updateSelectionButton();
 
     static_cast<ResourcePackResourceModel*>(m_model)->searchWithTerm(getSearchTerm(), m_ui->sortByBox->currentData().toUInt());
-    m_fetch_progress.watch(m_model->activeSearchJob().get());
+    m_fetchProgress.watch(m_model->activeSearchJob().get());
 }
 
 QMap<QString, QString> ResourcePackResourcePage::urlHandlers() const

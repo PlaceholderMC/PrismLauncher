@@ -419,7 +419,7 @@ int TranslationsModel::columnCount([[maybe_unused]] const QModelIndex& parent) c
 
 QVector<Language>::Iterator TranslationsModel::findLanguage(const QString& key)
 {
-    return std::find_if(d->m_languages.begin(), d->m_languages.end(), [&](Language& lang) { return lang.key == key; });
+    return std::find_if(d->m_languages.begin(), d->m_languages.end(), [key](Language& lang) { return lang.key == key; });
 }
 
 std::optional<Language> TranslationsModel::findLanguageAsOptional(const QString& key)

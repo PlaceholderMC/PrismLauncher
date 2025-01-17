@@ -39,14 +39,16 @@
 
 #include "ResourcePage.h"
 #include "modplatform/ModIndex.h"
+#include "ui/dialogs/CustomMessageBox.h"
 #include "ui_ResourcePage.h"
 
+#include <StringUtils.h>
 #include <QDesktopServices>
 #include <QKeyEvent>
 
 #include "Markdown.h"
 
-#include "StringUtils.h"
+#include "Application.h"
 #include "ui/dialogs/ResourceDownloadDialog.h"
 #include "ui/pages/modplatform/ResourceModel.h"
 #include "ui/widgets/ProjectItem.h"
@@ -54,7 +56,7 @@
 namespace ResourceDownload {
 
 ResourcePage::ResourcePage(ResourceDownloadDialog* parent, BaseInstance& base_instance)
-    : QWidget(parent), m_base_instance(base_instance), m_ui(new Ui::ResourcePage), m_parent_dialog(parent), m_fetch_progress(this, false)
+    : QWidget(parent), m_baseInstance(base_instance), m_ui(new Ui::ResourcePage), m_parentDialog(parent), m_fetchProgress(this, false)
 {
     m_ui->setupUi(this);
 
@@ -63,18 +65,18 @@ ResourcePage::ResourcePage(ResourceDownloadDialog* parent, BaseInstance& base_in
     m_ui->versionSelectionBox->view()->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_ui->versionSelectionBox->view()->parentWidget()->setMaximumHeight(300);
 
-    m_search_timer.setTimerType(Qt::TimerType::CoarseTimer);
-    m_search_timer.setSingleShot(true);
+    m_searchTimer.setTimerType(Qt::TimerType::CoarseTimer);
+    m_searchTimer.setSingleShot(true);
 
-    connect(&m_search_timer, &QTimer::timeout, this, &ResourcePage::triggerSearch);
+    connect(&m_searchTimer, &QTimer::timeout, this, &ResourcePage::triggerSearch);
 
     // hide progress bar to prevent weird artifact
-    m_fetch_progress.hide();
-    m_fetch_progress.hideIfInactive(true);
-    m_fetch_progress.setFixedHeight(24);
-    m_fetch_progress.progressFormat("");
+    m_fetchProgress.hide();
+    m_fetchProgress.hideIfInactive(true);
+    m_fetchProgress.setFixedHeight(24);
+    m_fetchProgress.progressFormat("");
 
-    m_ui->verticalLayout->insertWidget(1, &m_fetch_progress);
+    m_ui->verticalLayout->insertWidget(1, &m_fetchProgress);
 
     m_ui->packView->setItemDelegate(new ProjectItemDelegate(this));
     m_ui->packView->installEventFilter(this);
@@ -120,10 +122,10 @@ auto ResourcePage::eventFilter(QObject* watched, QEvent* event) -> bool
                 keyEvent->accept();
                 return true;
             } else {
-                if (m_search_timer.isActive())
-                    m_search_timer.stop();
+                if (m_searchTimer.isActive())
+                    m_searchTimer.stop();
 
-                m_search_timer.start(350);
+                m_searchTimer.start(350);
             }
         } else if (watched == m_ui->packView) {
             if (keyEvent->key() == Qt::Key_Return) {
@@ -247,14 +249,17 @@ void ResourcePage::updateUi()
 
 void ResourcePage::updateSelectionButton()
 {
-    if (!isOpened || m_selected_version_index < 0) {
+    if (!isOpened || m_selectedVersionIndex < 0) {
         m_ui->resourceSelectionButton->setEnabled(false);
         return;
     }
 
     m_ui->resourceSelectionButton->setEnabled(true);
     if (auto current_pack = getCurrentPack(); current_pack) {
-        if (!current_pack->isVersionSelected(m_selected_version_index))
+        if (current_pack->versionsLoaded && current_pack->versions.empty()) {
+            m_ui->resourceSelectionButton->setEnabled(false);
+            qWarning() << tr("No version available for the selected pack");
+        } else if (!current_pack->isVersionSelected(m_selectedVersionIndex))
             m_ui->resourceSelectionButton->setText(tr("Select %1 for download").arg(resourceString()));
         else
             m_ui->resourceSelectionButton->setText(tr("Deselect %1 for download").arg(resourceString()));
@@ -279,11 +284,15 @@ void ResourcePage::updateVersionList()
             if (!m_model->checkVersionFilters(version))
                 continue;
 
-            auto release_type = current_pack->versions[i].version_type.isValid()
-                                    ? QString(" [%1]").arg(current_pack->versions[i].version_type.toString())
-                                    : "";
+            auto versionText = version.version;
+            if (version.version_type.isValid()) {
+                versionText += QString(" [%1]").arg(version.version_type.toString());
+            }
+            if (version.fileId == installedVersion) {
+                versionText += tr(" [installed]", "Mod version select");
+            }
 
-            m_ui->versionSelectionBox->addItem(QString("%1%2").arg(version.version, release_type), QVariant(i));
+            m_ui->versionSelectionBox->addItem(versionText, QVariant(i));
         }
     }
     if (m_ui->versionSelectionBox->count() == 0) {
@@ -323,25 +332,26 @@ void ResourcePage::onSelectionChanged(QModelIndex curr, [[maybe_unused]] QModelI
 
 void ResourcePage::onVersionSelectionChanged(int index)
 {
-    m_selected_version_index = index;
+    m_selectedVersionIndex = m_ui->versionSelectionBox->itemData(index).toInt();
     updateSelectionButton();
 }
 
 void ResourcePage::addResourceToDialog(ModPlatform::IndexedPack::Ptr pack, ModPlatform::IndexedVersion& version)
 {
-    m_parent_dialog->addResource(pack, version);
+    m_parentDialog->addResource(pack, version);
 }
 
 void ResourcePage::removeResourceFromDialog(const QString& pack_name)
 {
-    m_parent_dialog->removeResource(pack_name);
+    m_parentDialog->removeResource(pack_name);
 }
 
 void ResourcePage::addResourceToPage(ModPlatform::IndexedPack::Ptr pack,
                                      ModPlatform::IndexedVersion& ver,
                                      const std::shared_ptr<ResourceFolderModel> base_model)
 {
-    m_model->addPack(pack, ver, base_model);
+    bool is_indexed = !APPLICATION->settings()->get("ModMetadataDisabled").toBool();
+    m_model->addPack(pack, ver, base_model, is_indexed);
 }
 
 void ResourcePage::removeResourceFromPage(const QString& name)
@@ -351,14 +361,15 @@ void ResourcePage::removeResourceFromPage(const QString& name)
 
 void ResourcePage::onResourceSelected()
 {
-    if (m_selected_version_index < 0)
+    if (m_selectedVersionIndex < 0)
         return;
 
     auto current_pack = getCurrentPack();
-    if (!current_pack || !current_pack->versionsLoaded)
+    if (!current_pack || !current_pack->versionsLoaded || current_pack->versions.size() < m_selectedVersionIndex)
         return;
 
-    auto& version = current_pack->versions[m_selected_version_index];
+    auto& version = current_pack->versions[m_selectedVersionIndex];
+    Q_ASSERT(!version.downloadUrl.isNull());
     if (version.is_currently_selected)
         removeResourceFromDialog(current_pack->name);
     else
@@ -397,14 +408,14 @@ void ResourcePage::openUrl(const QUrl& url)
         }
     }
 
-    if (!page.isNull() && !m_do_not_jump_to_mod) {
+    if (!page.isNull() && !m_doNotJumpToMod) {
         const QString slug = match.captured(1);
 
         // ensure the user isn't opening the same mod
         if (auto current_pack = getCurrentPack(); current_pack && slug != current_pack->slug) {
-            m_parent_dialog->selectPage(page);
+            m_parentDialog->selectPage(page);
 
-            auto newPage = m_parent_dialog->selectedPage();
+            auto newPage = m_parentDialog->selectedPage();
 
             QLineEdit* searchEdit = newPage->m_ui->searchEdit;
             auto model = newPage->m_model;
@@ -448,7 +459,7 @@ void ResourcePage::openProject(QVariant projectID)
     m_ui->resourceFilterButton->hide();
     m_ui->packView->hide();
     m_ui->resourceSelectionButton->hide();
-    m_do_not_jump_to_mod = true;
+    m_doNotJumpToMod = true;
 
     auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 
@@ -462,20 +473,23 @@ void ResourcePage::openProject(QVariant projectID)
     auto cancelBtn = buttonBox->button(QDialogButtonBox::Cancel);
     cancelBtn->setDefault(false);
     cancelBtn->setAutoDefault(false);
+    cancelBtn->setText(tr("Cancel"));
 
     connect(okBtn, &QPushButton::clicked, this, [this] {
         onResourceSelected();
-        m_parent_dialog->accept();
+        m_parentDialog->accept();
     });
 
-    connect(cancelBtn, &QPushButton::clicked, m_parent_dialog, &ResourceDownloadDialog::reject);
+    connect(cancelBtn, &QPushButton::clicked, m_parentDialog, &ResourceDownloadDialog::reject);
     m_ui->gridLayout_4->addWidget(buttonBox, 1, 2);
 
-    auto jump = [this, okBtn] {
+    connect(m_ui->versionSelectionBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this, okBtn](int index) { okBtn->setEnabled(m_ui->versionSelectionBox->itemData(index).toInt() >= 0); });
+
+    auto jump = [this] {
         for (int row = 0; row < m_model->rowCount({}); row++) {
             const QModelIndex index = m_model->index(row);
             m_ui->packView->setCurrentIndex(index);
-            okBtn->setEnabled(true);
             return;
         }
         m_ui->packDescription->setText(tr("The resource was not found"));

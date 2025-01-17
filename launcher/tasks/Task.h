@@ -87,7 +87,7 @@ class Task : public QObject, public QRunnable {
     enum class State { Inactive, Running, Succeeded, Failed, AbortedByUser };
 
    public:
-    explicit Task(QObject* parent = 0, bool show_debug_log = true);
+    explicit Task(bool show_debug_log = true);
     virtual ~Task() = default;
 
     bool isRunning() const;

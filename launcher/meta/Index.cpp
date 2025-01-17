@@ -140,8 +140,8 @@ Task::Ptr Index::loadVersion(const QString& uid, const QString& version, Net::Mo
     }
 
     auto versionList = get(uid);
-    auto loadTask = makeShared<SequentialTask>(
-        this, tr("Load meta for %1:%2", "This is for the task name that loads the meta index.").arg(uid, version));
+    auto loadTask =
+        makeShared<SequentialTask>(tr("Load meta for %1:%2", "This is for the task name that loads the meta index.").arg(uid, version));
     if (status() != BaseEntity::LoadStatus::Remote || force) {
         loadTask->addTask(this->loadTask(mode));
     }
