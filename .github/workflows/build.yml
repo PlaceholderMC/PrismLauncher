@@ -62,7 +62,7 @@ jobs:
             qt_version: "5.15.2"
             qt_modules: "qtnetworkauth"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             qt_ver: 6
             qt_host: linux
             qt_arch: ""
@@ -259,7 +259,7 @@ jobs:
 
           wget "https://github.com/AppImageCommunity/AppImageUpdate/releases/download/continuous/AppImageUpdate-x86_64.AppImage"
 
-          sudo apt install libopengl0
+          sudo apt install libopengl0 libfuse2
 
       - name: Add QT_HOST_PATH var (Windows MSVC arm64)
         if: runner.os == 'Windows' && matrix.architecture == 'arm64'
@@ -521,8 +521,8 @@ jobs:
 
           cp -r ${{ runner.workspace }}/Qt/${{ matrix.qt_version }}/gcc_64/plugins/iconengines/* ${{ env.INSTALL_APPIMAGE_DIR }}/usr/plugins/iconengines
 
-          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
-          cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
+          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.* ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
+          cp /usr/lib/x86_64-linux-gnu/libssl.so.* ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
           cp /usr/lib/x86_64-linux-gnu/libOpenGL.so.0* ${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib/
 
           LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${{ env.INSTALL_APPIMAGE_DIR }}/usr/lib"
@@ -557,9 +557,9 @@ jobs:
           mkdir  ${{ env.INSTALL_PORTABLE_DIR }}/lib
           cp /lib/x86_64-linux-gnu/libbz2.so.1.0 ${{ env.INSTALL_PORTABLE_DIR }}/lib
           cp /usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0 ${{ env.INSTALL_PORTABLE_DIR }}/lib
-          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 ${{ env.INSTALL_PORTABLE_DIR }}/lib
-          cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 ${{ env.INSTALL_PORTABLE_DIR }}/lib
-          cp /usr/lib/x86_64-linux-gnu/libffi.so.7 ${{ env.INSTALL_PORTABLE_DIR }}/lib
+          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.* ${{ env.INSTALL_PORTABLE_DIR }}/lib
+          cp /usr/lib/x86_64-linux-gnu/libssl.so.* ${{ env.INSTALL_PORTABLE_DIR }}/lib
+          cp /usr/lib/x86_64-linux-gnu/libffi.so.* ${{ env.INSTALL_PORTABLE_DIR }}/lib
           mv ${{ env.INSTALL_PORTABLE_DIR }}/bin/*.so* ${{ env.INSTALL_PORTABLE_DIR }}/lib
 
           for l in $(find ${{ env.INSTALL_PORTABLE_DIR }} -type f); do l=${l#$(pwd)/}; l=${l#${{ env.INSTALL_PORTABLE_DIR }}/}; l=${l#./}; echo $l; done > ${{ env.INSTALL_PORTABLE_DIR }}/manifest.txt
