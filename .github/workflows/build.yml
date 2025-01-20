@@ -631,10 +631,24 @@ jobs:
           ccache -s
 
   flatpak:
-    runs-on: ubuntu-latest
+    name: Flatpak (${{ matrix.arch }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch: x86_64
+
+          - os: ubuntu-22.04-arm
+            arch: aarch64
+
+    runs-on: ${{ matrix.os }}
+
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.8
       options: --privileged
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -652,6 +666,7 @@ jobs:
         with:
           bundle: PrismLauncher-${{ runner.os }}-${{ env.VERSION }}-Flatpak.flatpak
           manifest-path: flatpak/org.prismlauncher.PrismLauncher.yml
+          arch: ${{ matrix.arch }}
 
   nix:
     name: Nix (${{ matrix.system }})
@@ -662,6 +677,9 @@ jobs:
         include:
           - os: ubuntu-22.04
             system: x86_64-linux
+
+          - os: ubuntu-22.04-arm
+            system: aarch64-linux
 
           - os: macos-13
             system: x86_64-darwin
